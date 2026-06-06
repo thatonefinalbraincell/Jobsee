@@ -1,78 +1,109 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
-import { User, AuthError } from '@supabase/supabase-js';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useAuth } from '@/context/auth-context'; //  Clean absolute path alias
 
-// 1. Added login method signature to the context type definition
-interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  role: string | null;
-  login: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-  logout: () => Promise<void>;
-}
+export default function Login() {
+  const { user, role, login, loading: authLoading } = useAuth();
+  const router = useRouter();
 
-// 2. Initialized default placeholder for the context factory
-const AuthContext = createContext<AuthContextType>({ 
-  user: null, 
-  loading: true, 
-  role: null, 
-  login: async () => ({ error: null }),
-  logout: async () => {} 
-});
-
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-        const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
-        setRole(data?.role || null);
-      }
-      setLoading(false);
-    };
-
-    getSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user || null);
-      if (session?.user) {
-        const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
-        setRole(data?.role || null);
+    if (!authLoading && user) {
+      if (role === 'employer') {
+        router.push('/dashboard/employer');
       } else {
-        setRole(null);
+        router.push('/dashboard/student');
       }
-      setLoading(false);
-    });
+    }
+  }, [user, role, authLoading, router]);
 
-    return () => subscription.unsubscribe();
-  }, []);
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setIsSubmitting(true);
 
-  // 3. Implemented actual login function wrapper using Supabase Auth
-  const login = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+    try {
+      const { error } = await login(email, password);
+      if (error) throw error;
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Invalid credentials profile signature.');
+      setIsSubmitting(false);
+    }
   };
 
-  const logout = async () => {
-    await supabase.auth.signOut();
-  };
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black text-zinc-400 font-mono text-sm">
+        Verifying runtime session credentials...
+      </div>
+    );
+  }
 
   return (
-    // 4. Exposed the login method inside the provider ecosystem value block
-    <AuthContext.Provider value={{ user, loading, role, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
+    <div className="min-h-[80vh] flex flex-col items-center justify-center px-4">
+      <div className="w-full max-w-md space-y-8 bg-zinc-900/30 border border-zinc-800 p-8 rounded-2xl backdrop-blur-md">
+        
+        <div className="text-center">
+          <h2 className="text-3xl font-extrabold tracking-tight text-white">Welcome Back</h2>
+          <p className="mt-2 text-sm text-zinc-400">Access your terminal profile.</p>
+        </div>
 
-export const useAuth = () => useContext(AuthContext);
+        {errorMessage && (
+          <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs">
+            ⚠️ {errorMessage}
+          </div>
+        )}
+
+        <form onSubmit={handleLoginSubmit} className="space-y-5 text-sm">
+          <div>
+            <label className="block text-zinc-400 font-semibold mb-1.5 uppercase tracking-wider text-[11px]">
+              Campus Email
+            </label>
+            <input
+              type="email" required autoComplete="email"
+              value={email} onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@university.edu"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-zinc-400 font-semibold mb-1.5 uppercase tracking-wider text-[11px]">
+              Password
+            </label>
+            <input
+              type="password" required autoComplete="current-password"
+              value={password} onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-blue-500 font-mono"
+            />
+          </div>
+
+          <button
+            type="submit" disabled={isSubmitting}
+            className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-all disabled:opacity-40 text-xs uppercase tracking-wider"
+          >
+            {isSubmitting ? 'Authenticating...' : 'Sign In To Terminal'}
+          </button>
+        </form>
+
+        <div className="text-center pt-2 border-t border-zinc-800/60">
+          <p className="text-xs text-zinc-500">
+            New to the platform?{' '}
+            <Link href="/register" className="text-blue-500 hover:underline">
+              Create an account
+            </Link>
+          </p>
+        </div>
+
+      </div>
+    </div>
+  );
+}

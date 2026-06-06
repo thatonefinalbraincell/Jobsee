@@ -2,16 +2,25 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { User } from '@supabase/supabase-js';
+import { User, AuthError } from '@supabase/supabase-js'; //  Added AuthError type here
 
+// 1. Added login method signature to the context type interface
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   role: string | null;
+  login: (email: string, password: string) => Promise<{ error: AuthError | null }>; //  Added
   logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType>({ user: null, loading: true, role: null, logout: async () => {} });
+// 2. Added the default fallback placeholder value for login inside the factory creator
+const AuthContext = createContext<AuthContextType>({ 
+  user: null, 
+  loading: true, 
+  role: null, 
+  login: async () => ({ error: null }), //  Added
+  logout: async () => {} 
+});
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -45,12 +54,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // 3. Implemented the actual Supabase authentication login pipeline execution
+  const login = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    return { error };
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, role, logout }}>
+    // 4. Passed down the live 'login' method inside the provider ecosystem wrapper
+    <AuthContext.Provider value={{ user, loading, role, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

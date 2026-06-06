@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../../context/auth-context';
-import { supabase } from '../../../lib/supabase';
+import { useAuth } from '@/context/auth-context';
+import { supabase } from '@/lib/supabase';
 
 export default function PostJob() {
   const { user, role, loading: authLoading } = useAuth();
