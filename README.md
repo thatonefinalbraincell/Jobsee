@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # Jobsee
 
 
@@ -172,5 +172,4 @@ NODE_ENV=development
 | Auth | Supabase Auth + JWT | Secure, handles sessions |
 | Uploads | Supabase Storage | Free CDN for resumes/logos |
 =======
-# hackeuropa
->>>>>>> 1f9b3595f9203191e9449f0f8ccc4006ad5b353b
+
